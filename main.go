@@ -35,7 +35,7 @@ func run(args []string) (int, error) {
 	flag.Parse()
 
 	if len(args) == 0 {
-		fmt.Println("Usage: open-github-source <path>")
+		flag.Usage()
 		return 1, nil
 	}
 
