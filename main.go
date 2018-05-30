@@ -24,9 +24,12 @@ func main() {
 	os.Exit(status)
 }
 
+var (
+	from = flag.Uint("from", 0, "highlight from")
+	to   = flag.Uint("to", 0, "highlight to (from flag required)")
+)
+
 func run(args []string) (int, error) {
-	from := flag.Int("from", -1, "highlight from")
-	to := flag.Int("to", -1, "highlight to (from flag required)")
 	flag.Parse()
 
 	if len(args) == 0 {
@@ -34,12 +37,8 @@ func run(args []string) (int, error) {
 		return 1, nil
 	}
 
-	if *to >= 0 && *from < 0 {
-		return 1, errors.New("-from required")
-	}
-
-	if *from >= 0 && *to >= 0 && *to <= *from {
-		return 1, errors.Errorf("-to must be greater than -from: from=%d, to=%d", *from, *to)
+	if err := checkFlagCondition(); err != nil {
+		return 1, errors.Wrap(err, "precondition failed")
 	}
 
 	// change dir and reset
@@ -70,13 +69,24 @@ func run(args []string) (int, error) {
 	return 0, nil
 }
 
-func formatURL(proj *github.Project, ref, path string, from, to int) string {
+func formatURL(proj *github.Project, ref, path string, from, to uint) string {
 	url := fmt.Sprintf(format, proj.WebURL("", "", ""), ref, path)
-	if from >= 0 {
+	if from > 0 {
 		url += fmt.Sprintf("#L%d", from)
 	}
-	if to >= 0 {
+	if to > 0 {
 		url += fmt.Sprintf("-L%d", to)
 	}
 	return url
+}
+
+func checkFlagCondition() error {
+	if *to > 0 && *from == 0 {
+		return errors.New("-from required")
+	}
+
+	if *from > 0 && *to > 0 && *to <= *from {
+		return errors.Errorf("-to must be greater than -from: from=%d, to=%d", *from, *to)
+	}
+	return nil
 }
