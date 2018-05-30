@@ -4,7 +4,9 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/github/hub/github"
 	"github.com/pkg/errors"
@@ -41,6 +43,11 @@ func run(args []string) (int, error) {
 		return 1, errors.Wrap(err, "precondition failed")
 	}
 
+	absPath, err := filepath.Abs(flag.Arg(0))
+	if err != nil {
+		return 1, errors.Wrap(err, "failed to get absolute path")
+	}
+
 	// change dir and reset
 	defer func(path string) func() {
 		prev, _ := filepath.Abs(".")
@@ -48,7 +55,7 @@ func run(args []string) (int, error) {
 		return func() {
 			os.Chdir(prev)
 		}
-	}(filepath.Dir(flag.Arg(0)))()
+	}(filepath.Dir(absPath))()
 
 	repo, err := github.LocalRepo()
 	if err != nil {
@@ -65,12 +72,17 @@ func run(args []string) (int, error) {
 		return 1, err
 	}
 
-	fmt.Println(formatURL(proj, br.ShortName(), flag.Arg(0), *from, *to))
+	host := proj.WebURL("", "", "")
+	path, err := regularizePath(host, absPath)
+	if err != nil {
+		return 1, err
+	}
+	fmt.Println(formatURL(host, br.ShortName(), path, *from, *to))
 	return 0, nil
 }
 
-func formatURL(proj *github.Project, ref, path string, from, to uint) string {
-	url := fmt.Sprintf(format, proj.WebURL("", "", ""), ref, path)
+func formatURL(host, ref, path string, from, to uint) string {
+	url := fmt.Sprintf(format, host, ref, path)
 	if from > 0 {
 		url += fmt.Sprintf("#L%d", from)
 	}
@@ -89,4 +101,18 @@ func checkFlagCondition() error {
 		return errors.Errorf("-to must be greater than -from: from=%d, to=%d", *from, *to)
 	}
 	return nil
+}
+
+func regularizePath(host, path string) (string, error) {
+	p, err := filepath.Abs(path)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to parse host as an URL")
+	}
+
+	out, err := exec.Command("git", "rev-parse", "-q", "--absolute-git-dir").CombinedOutput()
+	if err != nil {
+		return "", errors.Wrap(err, "failed to get project root")
+	}
+
+	return strings.Replace(p, filepath.Dir(string(out))+string(filepath.Separator), "", 1), nil
 }
