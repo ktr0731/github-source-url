@@ -12,10 +12,8 @@ import (
 	"github.com/pkg/errors"
 )
 
-// https://github.com/ktr0731/evans/blob/master/README.md
 var (
-	format        = "%s/blob/%s/%s"
-	defaultRemote = "origin"
+	format = "%s/blob/%s/%s"
 )
 
 func main() {
@@ -72,12 +70,11 @@ func run(args []string) (int, error) {
 		return 1, err
 	}
 
-	host := proj.WebURL("", "", "")
-	path, err := regularizePath(host, absPath)
+	path, err := regularizePath(absPath)
 	if err != nil {
 		return 1, err
 	}
-	fmt.Println(formatURL(host, br.ShortName(), path, *from, *to))
+	fmt.Println(formatURL(proj.WebURL("", "", ""), br.ShortName(), path, *from, *to))
 	return 0, nil
 }
 
@@ -103,7 +100,7 @@ func checkFlagCondition() error {
 	return nil
 }
 
-func regularizePath(host, path string) (string, error) {
+func regularizePath(path string) (string, error) {
 	p, err := filepath.Abs(path)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to parse host as an URL")
